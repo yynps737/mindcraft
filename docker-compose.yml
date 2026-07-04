@@ -23,10 +23,11 @@ services:
       ZAICODING_API_KEY: ${ZAICODING_API_KEY:-}
       ZAI_CODING_API_KEY: ${ZAI_CODING_API_KEY:-}
       ZAI_CODING_BASE_URL: ${ZAI_CODING_BASE_URL:-https://api.z.ai/api/coding/paas/v4}
+      MINECRAFT_VERSION: ${MINECRAFT_VERSION:-auto}
       MINECRAFT_PORT: ${MINECRAFT_PORT:-55916}
       MINDSERVER_PORT: 8080
       SETTINGS_JSON: >-
-        {"auto_open_ui":false,"host_public":true,"host":"${MINECRAFT_HOST:-host.docker.internal}","allow_vision":${ALLOW_VISION:-false},"render_bot_view":${RENDER_BOT_VIEW:-false},"profiles":["${MINDCRAFT_PROFILE:-./profiles/deepseek.json}"]}
+        {"auto_open_ui":false,"host_public":true,"host":"${MINECRAFT_HOST:-host.docker.internal}","port":${MINECRAFT_PORT:-55916},"minecraft_version":"${MINECRAFT_VERSION:-auto}","allow_vision":${ALLOW_VISION:-false},"render_bot_view":${RENDER_BOT_VIEW:-false},"profiles":["${MINDCRAFT_PROFILE:-./profiles/deepseek.json}"]}
     volumes:
       - ./profiles:/app/profiles:ro
       - ./bots:/app/bots
@@ -52,6 +53,8 @@ services:
       - ./services/viaproxy:/app/run
     ports:
       - "25568:25568"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     profiles:
       - viaproxy
     stdin_open: true

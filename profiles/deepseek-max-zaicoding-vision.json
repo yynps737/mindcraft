@@ -1,5 +1,5 @@
 {
-    "name": "hybrid-deepseek-zai",
+    "name": "HybridZaiBot",
     "model": {
         "api": "deepseek",
         "model": "deepseek-v4-flash",

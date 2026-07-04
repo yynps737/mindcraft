@@ -91,6 +91,9 @@ async function main() {
     if (process.env.MINECRAFT_HOST) {
         settings.host = process.env.MINECRAFT_HOST;
     }
+    if (process.env.MINECRAFT_VERSION) {
+        settings.minecraft_version = process.env.MINECRAFT_VERSION;
+    }
     if (process.env.MINECRAFT_PORT) {
         settings.port = parsePortEnv('MINECRAFT_PORT');
     }

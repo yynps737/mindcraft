@@ -1,8 +1,8 @@
 {
-    "name": "deepseek-max-zaicoding-vision",
+    "name": "max-quality-zaicoding",
     "model": {
-        "api": "deepseek",
-        "model": "deepseek-v4-pro",
+        "api": "zaicoding",
+        "model": "glm-5.2",
         "params": {
             "thinking": {
                 "type": "enabled"
@@ -12,8 +12,8 @@
         }
     },
     "code_model": {
-        "api": "deepseek",
-        "model": "deepseek-v4-pro",
+        "api": "zaicoding",
+        "model": "glm-5.2",
         "params": {
             "thinking": {
                 "type": "enabled"

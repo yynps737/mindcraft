@@ -66,7 +66,7 @@ class ZAIBase {
             ...(this.params || {}),
         };
         if (stop_seq) {
-            pack.stop = stop_seq;
+            pack.stop = Array.isArray(stop_seq) ? stop_seq : [stop_seq];
         }
         return pack;
     }
@@ -169,7 +169,7 @@ export class ZAICoding extends ZAIBase {
             defaultBaseURL: 'https://api.z.ai/api/coding/paas/v4',
             baseURLEnv: 'ZAI_CODING_BASE_URL',
             keyName: getZaiCodingKeyName(),
-            defaultModel: 'glm-5v-turbo',
+            defaultModel: 'glm-5.2',
             providerLabel: 'z.ai coding plan',
         });
     }

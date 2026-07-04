@@ -1,22 +1,44 @@
+name: mindcraft
+
 services:
   mindcraft:
-    build: .
+    image: mindcraft:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    init: true
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
     environment:
-      SETTINGS_JSON: |
-        {"auto_open_ui": false}
+      NODE_ENV: production
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:?Set DEEPSEEK_API_KEY in .env or shell}
+      MINECRAFT_PORT: ${MINECRAFT_PORT:-55916}
+      MINDSERVER_PORT: 8080
+      SETTINGS_JSON: >-
+        {"auto_open_ui":false,"host_public":true,"host":"${MINECRAFT_HOST:-host.docker.internal}","profiles":["./profiles/deepseek.json"]}
     volumes:
-      - ./settings.js:/app/settings.js
-      - ./keys.json:/app/keys.json
-      - ./profiles:/app/profiles
+      - ./profiles:/app/profiles:ro
       - ./bots:/app/bots
     ports:
-      - "3000-3003:3000-3003" # see the view from the camera mounted on your bot head: http://localhost:3000/
-      - 8080 # Mindserver port
+      - "${MINDSERVER_PORT:-8080}:8080"
+      - "3000-3003:3000-3003"
     extra_hosts:
-    - "host.docker.internal:host-gateway"
+      - "host.docker.internal:host-gateway"
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:8080', res => process.exit(res.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
-  viaproxy: #use this service to connect to an unsupported minecraft server versions. more info: ./services/viaproxy/README.md
+  viaproxy:
     image: ghcr.io/viaversion/viaproxy:latest
+    restart: unless-stopped
     volumes:
       - ./services/viaproxy:/app/run
     ports:

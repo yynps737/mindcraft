@@ -144,14 +144,31 @@ If you want more optimization and automatic launching of the minecraft world, yo
 If you intend to `allow_insecure_coding`, it is a good idea to run the app in a docker container to reduce risks of running unknown code. This is strongly recommended before connecting to remote servers, although still does not guarantee complete safety.
 
 ```bash
-docker build -t mindcraft . && docker run --rm --add-host=host.docker.internal:host-gateway -p 8080:8080 -p 3000-3003:3000-3003 -e SETTINGS_JSON='{"auto_open_ui":false,"profiles":["./profiles/gemini.json"],"host":"host.docker.internal"}' --volume ./keys.json:/app/keys.json --name mindcraft mindcraft
-```
-or simply
-```bash
-docker-compose up --build
+cp .env.example .env
+# edit .env and set DEEPSEEK_API_KEY
+docker compose up --build
 ```
 
-When running in docker, if you want the bot to join your local minecraft server, you have to use a special host address `host.docker.internal` to call your localhost from inside your docker container. Put this into your [settings.js](settings.js):
+The Compose stack uses `DEEPSEEK_API_KEY` from `.env` or your shell environment, starts the DeepSeek V4 Flash profile, and binds the MindServer UI to `http://localhost:8080`.
+
+If you prefer `docker run`, pass the same environment variables explicitly:
+
+```bash
+docker build -t mindcraft:local .
+docker run --rm \
+  --add-host=host.docker.internal:host-gateway \
+  -p 8080:8080 \
+  -p 3000-3003:3000-3003 \
+  -e DEEPSEEK_API_KEY \
+  -e MINECRAFT_PORT=55916 \
+  -e SETTINGS_JSON='{"auto_open_ui":false,"host_public":true,"profiles":["./profiles/deepseek.json"],"host":"host.docker.internal"}' \
+  --volume ./profiles:/app/profiles:ro \
+  --volume ./bots:/app/bots \
+  --name mindcraft \
+  mindcraft:local
+```
+
+When running in Docker, if you want the bot to join your local Minecraft server, use the special host address `host.docker.internal` to call your localhost from inside the container. The provided Compose file does this by default through `MINECRAFT_HOST=host.docker.internal` in `.env`.
 
 ```javascript
 "host": "host.docker.internal", // instead of "localhost", to join your local minecraft from inside the docker container

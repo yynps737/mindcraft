@@ -1,7 +1,9 @@
 .vscode/
 .idea/
 node_modules/
-package-lock.json
+.env
+.env.*
+!.env.example
 code_records/
 scratch.js
 bots/**/action-code/**

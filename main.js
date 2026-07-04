@@ -118,7 +118,7 @@ async function main() {
     const profiles = settings.profiles.map(loadProfile);
     assertUniqueProfileNames(profiles);
 
-    await Mindcraft.init(false, settings.mindserver_port, settings.auto_open_ui);
+    await Mindcraft.init(Boolean(settings.host_public), settings.mindserver_port, settings.auto_open_ui);
 
     for (let profile of profiles) {
         settings.profile = profile;

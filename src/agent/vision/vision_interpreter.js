@@ -8,12 +8,18 @@ export class VisionInterpreter {
         this.allow_vision = allow_vision;
         this.fp = './bots/'+agent.name+'/screenshots/';
         if (allow_vision) {
-            this.camera = new Camera(agent.bot, this.fp);
+            try {
+                this.camera = new Camera(agent.bot, this.fp);
+            } catch (error) {
+                console.warn('Vision disabled because camera initialization failed:', error);
+                this.allow_vision = false;
+                this.camera = null;
+            }
         }
     }
 
     async lookAtPlayer(player_name, direction) {
-        if (!this.allow_vision || !this.agent.prompter.vision_model.sendVisionRequest) {
+        if (!this.allow_vision || !this.camera || !this.agent.prompter.vision_model.sendVisionRequest) {
             return "Vision is disabled. Use other methods to describe the environment.";
         }
         let result = "";
@@ -39,7 +45,7 @@ export class VisionInterpreter {
     }
 
     async lookAtPosition(x, y, z) {
-        if (!this.allow_vision || !this.agent.prompter.vision_model.sendVisionRequest) {
+        if (!this.allow_vision || !this.camera || !this.agent.prompter.vision_model.sendVisionRequest) {
             return "Vision is disabled. Use other methods to describe the environment.";
         }
         let result = "";
@@ -78,4 +84,4 @@ export class VisionInterpreter {
             return `Error reading image: ${error.message}`;
         }
     }
-} 
+}

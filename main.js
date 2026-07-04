@@ -88,6 +88,9 @@ async function main() {
     }
 
     // these environment variables override certain settings
+    if (process.env.MINECRAFT_HOST) {
+        settings.host = process.env.MINECRAFT_HOST;
+    }
     if (process.env.MINECRAFT_PORT) {
         settings.port = parsePortEnv('MINECRAFT_PORT');
     }

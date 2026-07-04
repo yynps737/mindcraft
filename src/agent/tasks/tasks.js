@@ -1,4 +1,4 @@
-import { readFileSync , writeFileSync, existsSync} from 'fs';
+import { readFileSync, writeFileSync, existsSync, renameSync } from 'fs';
 import { executeCommand } from '../commands/index.js';
 import { getPosition } from '../library/world.js';
 import { ConstructionTaskValidator, Blueprint } from './construction_tasks.js';
@@ -21,7 +21,9 @@ const hellsKitchenProgressManager = {
   
   writeProgress: function(progress) {
     try {
-      writeFileSync(PROGRESS_FILE, JSON.stringify(progress), 'utf8');
+      const tmpFile = `${PROGRESS_FILE}.${process.pid}.tmp`;
+      writeFileSync(tmpFile, JSON.stringify(progress), 'utf8');
+      renameSync(tmpFile, PROGRESS_FILE);
     } catch (err) {
       console.error('Error writing progress file:', err);
     }
@@ -246,7 +248,7 @@ export class Task {
         if (task_data) {
             console.log('Starting task', task_data.task_id);
             console.log("Task start time set to", this.taskStartTime);
-            if (task_data.task_id.endsWith('hells_kitchen')) {
+            if (task_data.task_id?.endsWith('hells_kitchen') && this.agent.count_id === 0) {
                 // Reset hells_kitchen progress when a new task starts
                 hellsKitchenProgressManager.resetTask(task_data.task_id);
                 console.log('Reset Hells Kitchen progress for new task');
@@ -298,11 +300,14 @@ export class Task {
         }
 
         this.name = this.agent.name;
-        this.available_agents = []
+        this.available_agents = [];
     }
 
     updateAvailableAgents(agents) {
         this.available_agents = agents
+            .filter(agent => typeof agent === 'string' || agent.in_game)
+            .map(agent => typeof agent === 'string' ? agent : agent.name)
+            .filter(Boolean);
     }
 
     // Add this method if you want to manually reset the hells_kitchen progress
@@ -398,8 +403,14 @@ export class Task {
 
     async setAgentGoal() {
         let agentGoal = this.getAgentGoal();
-        if (agentGoal && this.data.agent_count + this.data.human_count > 1) {
-            agentGoal += "You have to collaborate with other agents/bots, namely " + this.available_agents.filter(n => n !== this.name).join(', ') + " to complete the task as soon as possible by dividing the work among yourselves.";
+        if (!agentGoal) {
+            return;
+        }
+        const agentCount = this.data?.agent_count || 1;
+        const humanCount = this.data?.human_count || 0;
+        if (agentCount + humanCount > 1) {
+            const collaborators = this.available_agents.filter(n => n !== this.name).join(', ');
+            agentGoal += "You have to collaborate with other agents/bots, namely " + collaborators + " to complete the task as soon as possible by dividing the work among yourselves.";
             console.log(`Setting goal for agent ${this.agent.count_id}: ${agentGoal}`);
         }
         await executeCommand(this.agent, `!goal("${agentGoal}")`);

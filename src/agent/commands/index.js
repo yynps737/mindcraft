@@ -26,7 +26,7 @@ export function blacklistCommands(commands) {
     }
 }
 
-const commandRegex = /!(\w+)(?:\(((?:-?\d+(?:\.\d+)?|true|false|"[^"]*")(?:\s*,\s*(?:-?\d+(?:\.\d+)?|true|false|"[^"]*"))*)\))?/
+const commandRegex = /!(\w+)(?:\(((?:-?\d+(?:\.\d+)?|true|false|"[^"]*")(?:\s*,\s*(?:-?\d+(?:\.\d+)?|true|false|"[^"]*"))*)\))?/;
 const argRegex = /-?\d+(?:\.\d+)?|true|false|"[^"]*"/g;
 
 export function containsCommand(message) {
@@ -81,7 +81,7 @@ function checkInInterval(number, lowerBound, upperBound, endpointType) {
         case '[]':
             return lowerBound <= number && number <= upperBound;
         default:
-            throw new Error('Unknown endpoint type:', endpointType)
+            throw new Error('Unknown endpoint type:', endpointType);
     }
 }
 
@@ -105,17 +105,23 @@ export function parseCommandMessage(message) {
     else args = [];
 
     const command = getCommand(commandName);
-    if(!command) return `${commandName} is not a command.`
+    if(!command) return `${commandName} is not a command.`;
 
     const params = commandParams(command);
     const paramNames = commandParamNames(command);
     
-    if (args.length !== params.length)
-        return `Command ${command.name} was given ${args.length} args, but requires ${params.length} args.`;
+    const requiredParams = params.filter(param => !param.optional && !Object.prototype.hasOwnProperty.call(param, 'default')).length;
+    if (args.length < requiredParams || args.length > params.length)
+        return `Command ${command.name} was given ${args.length} args, but requires ${requiredParams}${requiredParams === params.length ? '' : `-${params.length}`} args.`;
 
     
-    for (let i = 0; i < args.length; i++) {
+    for (let i = 0; i < params.length; i++) {
         const param = params[i];
+        const argProvided = i < args.length;
+        if (!argProvided) {
+            args[i] = Object.prototype.hasOwnProperty.call(param, 'default') ? param.default : undefined;
+            continue;
+        }
         //Remove any extra characters
         let arg = args[i].trim();
         if ((arg.startsWith('"') && arg.endsWith('"')) || (arg.startsWith("'") && arg.endsWith("'"))) {
@@ -135,13 +141,14 @@ export function parseCommandMessage(message) {
             case 'ItemName':
                 if (arg.endsWith('plank') || arg.endsWith('seed'))
                     arg += 's'; // add 's' to for common mistakes like "oak_plank" or "wheat_seed"
+                break;
             case 'string':
                 break;
             default:
                 throw new Error(`Command '${commandName}' parameter '${paramNames[i]}' has an unknown type: ${param.type}`);
         }
         if(arg === null || Number.isNaN(arg))
-            return `Error: Param '${paramNames[i]}' must be of type ${param.type}.`
+            return `Error: Param '${paramNames[i]}' must be of type ${param.type}.`;
 
         if(typeof arg === 'number') { //Check the domain of numbers
             const domain = param.domain;
@@ -157,15 +164,15 @@ export function parseCommandMessage(message) {
                     //Alternatively arg could be set to the nearest value in the domain.
                 }
             } else if (!suppressNoDomainWarning) {
-                console.warn(`Command '${commandName}' parameter '${paramNames[i]}' has no domain set. Expect any value [-Infinity, Infinity].`)
+                console.warn(`Command '${commandName}' parameter '${paramNames[i]}' has no domain set. Expect any value [-Infinity, Infinity].`);
                 suppressNoDomainWarning = true; //Don't spam console. Only give the warning once.
             }
         } else if(param.type === 'BlockName') { //Check that there is a block with this name
-            if(getBlockId(arg) == null) return  `Invalid block type: ${arg}.`
+            if(getBlockId(arg) == null) return  `Invalid block type: ${arg}.`;
         } else if(param.type === 'ItemName') { //Check that there is an item with this name
-            if(getItemId(arg) == null) return `Invalid item type: ${arg}.`
+            if(getItemId(arg) == null) return `Invalid item type: ${arg}.`;
         } else if(param.type === 'BlockOrItemName') {
-            if(getBlockId(arg) == null && getItemId(arg) == null) return  `Invalid block or item type: ${arg}.`
+            if(getBlockId(arg) == null && getItemId(arg) == null) return  `Invalid block or item type: ${arg}.`;
         }
         args[i] = arg;
     }
@@ -209,6 +216,10 @@ function numParams(command) {
     return commandParams(command).length;
 }
 
+function numRequiredParams(command) {
+    return commandParams(command).filter(param => !param.optional && !Object.prototype.hasOwnProperty.call(param, 'default')).length;
+}
+
 export async function executeCommand(agent, message) {
     let parsed = parseCommandMessage(message);
     if (typeof parsed === 'string')
@@ -220,8 +231,10 @@ export async function executeCommand(agent, message) {
         if (parsed.args) {
             numArgs = parsed.args.length;
         }
-        if (numArgs !== numParams(command))
-            return `Command ${command.name} was given ${numArgs} args, but requires ${numParams(command)} args.`;
+        const requiredArgs = numRequiredParams(command);
+        const totalArgs = numParams(command);
+        if (numArgs < requiredArgs || numArgs > totalArgs)
+            return `Command ${command.name} was given ${numArgs} args, but requires ${requiredArgs}${requiredArgs === totalArgs ? '' : `-${totalArgs}`} args.`;
         else {
             const result = await command.perform(agent, ...parsed.args);
             return result;
@@ -239,7 +252,7 @@ export function getCommandDocs(agent) {
         'ItemName':          'string',
         'BlockOrItemName':   'string',
         'boolean':           'bool'
-    }
+    };
     let docs = `\n*COMMAND DOCS\n You can use the following commands to perform actions and get information about the world. 
     Use the commands with the syntax: !commandName or !commandName("arg1", 1.2, ...) if the command takes arguments.\n
     Do not use codeblocks. Use double quotes for strings. Only use one command in each response, trailing commands and comments will be ignored.\n`;
@@ -251,7 +264,11 @@ export function getCommandDocs(agent) {
         if (command.params) {
             docs += 'Params:\n';
             for (let param in command.params) {
-                docs += `${param}: (${typeTranslations[command.params[param].type]??command.params[param].type}) ${command.params[param].description}\n`;
+                const paramDef = command.params[param];
+                const optional = paramDef.optional || Object.prototype.hasOwnProperty.call(paramDef, 'default')
+                    ? ` Optional${Object.prototype.hasOwnProperty.call(paramDef, 'default') ? `, default ${paramDef.default}` : ''}.`
+                    : '';
+                docs += `${param}: (${typeTranslations[paramDef.type]??paramDef.type}) ${paramDef.description}${optional}\n`;
             }
         }
     }

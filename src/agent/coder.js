@@ -116,6 +116,11 @@ export class Coder {
     async  _lintCode(code) {
         let result = '#### CODE ERROR INFO ###\n';
         const codeNoComments = code.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+        const directBotAccess = /\bbot\s*(?:\.(?!interrupt_code\b)|\[)/.test(codeNoComments);
+        if (directBotAccess) {
+            result += 'Direct bot property or method access is not allowed in generated code. Use documented skills.* or world.* helper functions instead.\n';
+            return result;
+        }
         const skillRegex = /((?:skills|world)\.(.*?))\(/g;
         const skills = [];
         let match;

@@ -669,12 +669,14 @@ export async function placeBlock(bot, blockType, x, y, z, placeOn='bottom', dont
         if (useDelay) { await new Promise(resolve => setTimeout(resolve, blockPlaceDelay)); }
         let msg = '/setblock ' + Math.floor(x) + ' ' + Math.floor(y) + ' ' + Math.floor(z) + ' ' + blockType;
         bot.chat(msg);
-        if (blockType.includes('door'))
+        if (blockType.includes('door')) {
             if (useDelay) { await new Promise(resolve => setTimeout(resolve, blockPlaceDelay)); }
             bot.chat('/setblock ' + Math.floor(x) + ' ' + Math.floor(y+1) + ' ' + Math.floor(z) + ' ' + blockType + '[half=upper]');
-        if (blockType.includes('bed'))
+        }
+        if (blockType.includes('bed')) {
             if (useDelay) { await new Promise(resolve => setTimeout(resolve, blockPlaceDelay)); }
             bot.chat('/setblock ' + Math.floor(x) + ' ' + Math.floor(y) + ' ' + Math.floor(z-1) + ' ' + blockType + '[part=head]');
+        }
         log(bot, `Used /setblock to place ${blockType} at ${target_dest}.`);
         return true;
     }
@@ -1509,7 +1511,8 @@ export async function useDoor(bot, door_pos=null) {
     if (!door_pos) {
         for (let door_type of ['oak_door', 'spruce_door', 'birch_door', 'jungle_door', 'acacia_door', 'dark_oak_door',
                                'mangrove_door', 'cherry_door', 'bamboo_door', 'crimson_door', 'warped_door']) {
-            door_pos = world.getNearestBlock(bot, door_type, 16).position;
+            const door = world.getNearestBlock(bot, door_type, 16);
+            door_pos = door?.position;
             if (door_pos) break;
         }
     } else {
@@ -1523,7 +1526,16 @@ export async function useDoor(bot, door_pos=null) {
     bot.pathfinder.setGoal(new pf.goals.GoalNear(door_pos.x, door_pos.y, door_pos.z, 1));
     await new Promise((resolve) => setTimeout(resolve, 1000));
     while (bot.pathfinder.isMoving()) {
+        if (bot.interrupt_code) {
+            bot.pathfinder.stop();
+            log(bot, `Door use interrupted.`);
+            return false;
+        }
         await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    if (bot.interrupt_code) {
+        log(bot, `Door use interrupted.`);
+        return false;
     }
     
     let door_block = bot.blockAt(door_pos);
@@ -1561,11 +1573,24 @@ export async function goToBed(bot) {
     }
     let loc = beds[0];
     await goToPosition(bot, loc.x, loc.y, loc.z);
+    if (bot.interrupt_code) {
+        log(bot, `Going to bed interrupted.`);
+        return false;
+    }
     const bed = bot.blockAt(loc);
     await bot.sleep(bed);
     log(bot, `You are in bed.`);
     bot.modes.pause('unstuck');
     while (bot.isSleeping) {
+        if (bot.interrupt_code) {
+            try {
+                await bot.wake();
+            } catch (err) {
+                console.warn('Failed to wake interrupted bot:', err.message);
+            }
+            log(bot, `Sleep interrupted.`);
+            return false;
+        }
         await new Promise(resolve => setTimeout(resolve, 500));
     }
     log(bot, `You have woken up.`);

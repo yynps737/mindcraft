@@ -22,9 +22,12 @@ export class DeepSeek {
         messages = strictFormat(messages);
 
         const pack = {
-            model: this.model_name || "deepseek-chat",
+            model: this.model_name || "deepseek-v4-flash",
             messages,
             stop: stop_seq,
+            // V4 defaults to thinking mode; disable for max speed (non-thinking).
+            // Re-enable per-profile via params: { "thinking": { "type": "enabled" } }
+            thinking: { "type": "disabled" },
             ...(this.params || {})
         };
 

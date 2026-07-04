@@ -43,7 +43,9 @@ const ERROR_DEFINITIONS = {
 export const log = (agentName, msg) => {
     // Use console.error for visibility in terminal
     console.error(msg);
-    try { sendOutputToServer(agentName || 'system', msg); } catch (_) {}
+    try { sendOutputToServer(agentName || 'system', msg); } catch (_) {
+        // MindServer may be unavailable during early connection failures.
+    }
 };
 
 // Analyzes the kick reason and returns a full, human-readable sentence.
@@ -65,14 +67,16 @@ export function parseKickReason(reason) {
     try {
         const obj = typeof reason === 'string' ? JSON.parse(reason) : reason;
         fallback = obj.translate || obj.text || (obj.value?.translate) || raw;
-    } catch (_) {}
+    } catch (_) {
+        // Raw text fallback is already set.
+    }
     
     return { type: 'other', msg: `Disconnected: ${fallback}`, isFatal: true };
 }
 
 // Centralized handler for disconnections.
 export function handleDisconnection(agentName, reason) {
-    const { type, msg } = parseKickReason(reason);
+    const { type, msg, isFatal } = parseKickReason(reason);
     
     // Format: [LoginGuard] Error Message
     const finalMsg = `[LoginGuard] ${msg}`;
@@ -80,7 +84,7 @@ export function handleDisconnection(agentName, reason) {
     // Only call log once (it handles console printing)
     log(agentName, finalMsg);
     
-    return { type, msg: finalMsg };
+    return { type, msg: finalMsg, isFatal };
 }
 
 // Validates name format.

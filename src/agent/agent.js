@@ -23,6 +23,8 @@ export class Agent {
         this.last_sender = null;
         this.count_id = count_id;
         this._disconnectHandled = false;
+        this._cleanKillPromise = null;
+        this._processHandlersRegistered = false;
 
         // Initialize components
         this.actions = new ActionManager(this);
@@ -52,37 +54,21 @@ export class Agent {
         if (load_mem) {
             save_data = this.history.load();
         }
-        let taskStart = null;
-        if (save_data) {
-            taskStart = save_data.taskStart;
-        } else {
-            taskStart = Date.now();
-        }
+        const taskStart = save_data?.taskStart || Date.now();
         this.task = new Task(this, settings.task, taskStart);
         this.blocked_actions = settings.blocked_actions.concat(this.task.blocked_actions || []);
         blacklistCommands(this.blocked_actions);
+        this._registerProcessHandlers();
 
         console.log(this.name, 'logging into minecraft...');
         this.bot = initBot(this.name);
-        
-        // Connection Handler
-        const onDisconnect = (event, reason) => {
-            if (this._disconnectHandled) return;
-            this._disconnectHandled = true;
 
-            // Log and Analyze
-            // handleDisconnection handles logging to console and server
-            const { type } = handleDisconnection(this.name, reason);
-     
-            process.exit(1);
-        };
-        
         // Bind events
-        this.bot.once('kicked', (reason) => onDisconnect('Kicked', reason));
-        this.bot.once('end', (reason) => onDisconnect('Disconnected', reason));
+        this.bot.once('kicked', (reason) => { void this._handleDisconnect(reason); });
+        this.bot.once('end', (reason) => { void this._handleDisconnect(reason); });
         this.bot.on('error', (err) => {
             if (String(err).includes('Duplicate') || String(err).includes('ECONNREFUSED')) {
-                 onDisconnect('Error', err);
+                 void this._handleDisconnect(err);
             } else {
                  log(this.name, `[LoginGuard] Connection Error: ${String(err)}`);
             }
@@ -104,7 +90,7 @@ export class Agent {
         const spawnTimeout = setTimeout(() => {
             const msg = `Bot has not spawned after ${spawnTimeoutDuration} seconds. Exiting.`;
             log(this.name, msg);
-            process.exit(1);
+            void this.cleanKill(msg, 1);
         }, spawnTimeoutDuration * 1000);
         this.bot.once('spawn', async () => {
             try {
@@ -119,18 +105,17 @@ export class Agent {
                 console.log(`${this.name} spawned.`);
                 this.clearBotLogs();
               
-                this._setupEventHandlers(save_data, init_message);
+                await this._setupEventHandlers(save_data, init_message);
                 this.startEvents();
               
                 if (!load_mem) {
                     if (settings.task) {
-                        this.task.initBotTask();
-                        this.task.setAgentGoal();
+                        await this.task.initBotTask();
                     }
                 } else {
                     // set the goal without initializing the rest of the task
                     if (settings.task) {
-                        this.task.setAgentGoal();
+                        await this.task.setAgentGoal();
                     }
                 }
 
@@ -139,9 +124,27 @@ export class Agent {
 
             } catch (error) {
                 console.error('Error in spawn event:', error);
-                process.exit(0);
+                await this.cleanKill(`Error in spawn event: ${error.stack || error}`, 1);
             }
         });
+    }
+
+    _registerProcessHandlers() {
+        if (this._processHandlersRegistered) return;
+        this._processHandlersRegistered = true;
+        process.once('SIGINT', () => {
+            void this.cleanKill('Received SIGINT. Killing agent process.', 0);
+        });
+        process.once('SIGTERM', () => {
+            void this.cleanKill('Received SIGTERM. Killing agent process.', 1);
+        });
+    }
+
+    async _handleDisconnect(reason) {
+        if (this._disconnectHandled) return;
+        this._disconnectHandled = true;
+        const { msg, isFatal } = handleDisconnection(this.name, reason);
+        await this.cleanKill(msg, isFatal ? 0 : 1);
     }
 
     async _setupEventHandlers(save_data, init_message) {
@@ -166,7 +169,7 @@ export class Agent {
                 console.log(this.name, 'received message from', username, ':', message);
 
                 if (convoManager.isOtherAgent(username)) {
-                    console.warn('received whisper from other bot??')
+                    console.warn('received whisper from other bot??');
                 }
                 else {
                     let translation = await handleEnglishTranslation(message);
@@ -175,7 +178,7 @@ export class Agent {
             } catch (error) {
                 console.error('Error handling message:', error);
             }
-        }
+        };
 
 		this.respondFunc = respondFunc;
 
@@ -196,7 +199,7 @@ export class Agent {
 
         if (save_data?.self_prompt) {
             if (init_message) {
-                this.history.add('system', init_message);
+                await this.history.add('system', init_message);
             }
             await this.self_prompter.handleLoad(save_data.self_prompt, save_data.self_prompting_state);
         }
@@ -207,7 +210,7 @@ export class Agent {
                     message: `You have restarted and this message is auto-generated. Continue the conversation with me.`,
                     start: true
                 };
-                convoManager.receiveFromBot(this.last_sender, msg_package);
+                await convoManager.receiveFromBot(this.last_sender, msg_package);
             }
         }
         else if (init_message) {
@@ -226,7 +229,7 @@ export class Agent {
         const missingPlayers = this.task.agent_names.filter(name => !this.bot.players[name]);
         if (missingPlayers.length > 0) {
             console.log(`Missing players/bots: ${missingPlayers.join(', ')}`);
-            this.cleanKill('Not all required players/bots are present in the world. Exiting.', 4);
+            void this.cleanKill('Not all required players/bots are present in the world. Exiting.', 4);
         }
     }
 
@@ -246,7 +249,7 @@ export class Agent {
     shutUp() {
         this.shut_up = true;
         if (this.self_prompter.isActive()) {
-            this.self_prompter.stop(false);
+            void this.self_prompter.stop(false);
         }
         convoManager.endAllConversations();
     }
@@ -273,18 +276,18 @@ export class Agent {
             const user_command_name = containsCommand(message);
             if (user_command_name) {
                 if (!commandExists(user_command_name)) {
-                    this.routeResponse(source, `Command '${user_command_name}' does not exist.`);
+                    await this.routeResponse(source, `Command '${user_command_name}' does not exist.`);
                     return false;
                 }
-                this.routeResponse(source, `*${source} used ${user_command_name.substring(1)}*`);
+                await this.routeResponse(source, `*${source} used ${user_command_name.substring(1)}*`);
                 if (user_command_name === '!newAction') {
                     // all user-initiated commands are ignored by the bot except for this one
                     // add the preceding message to the history to give context for newAction
-                    this.history.add(source, message);
+                    await this.history.add(source, message);
                 }
                 let execute_res = await executeCommand(this, message);
-                if (execute_res) 
-                    this.routeResponse(source, execute_res);
+                if (execute_res)
+                    await this.routeResponse(source, execute_res);
                 return true;
             }
         }
@@ -310,7 +313,7 @@ export class Agent {
 
         // Handle other user messages
         await this.history.add(source, message);
-        this.history.save();
+        await this.history.save();
 
         if (!self_prompt && this.self_prompter.isActive()) // message is from user during self-prompting
             max_responses = 1; // force only respond to this message, then let self-prompting take over
@@ -322,7 +325,7 @@ export class Agent {
             console.log(`${this.name} full response to ${source}: ""${res}""`);
 
             if (res.trim().length === 0) {
-                console.warn('no response')
+                console.warn('no response');
                 break; // empty response ends loop
             }
 
@@ -330,11 +333,11 @@ export class Agent {
 
             if (command_name) { // contains query or command
                 res = truncCommandMessage(res); // everything after the command is ignored
-                this.history.add(this.name, res);
+                await this.history.add(this.name, res);
                 
                 if (!commandExists(command_name)) {
-                    this.history.add('system', `Command ${command_name} does not exist.`);
-                    console.warn('Agent hallucinated command:', command_name)
+                    await this.history.add('system', `Command ${command_name} does not exist.`);
+                    console.warn('Agent hallucinated command:', command_name);
                     continue;
                 }
 
@@ -342,7 +345,7 @@ export class Agent {
                 this.self_prompter.handleUserPromptedCmd(self_prompt, isAction(command_name));
 
                 if (settings.show_command_syntax === "full") {
-                    this.routeResponse(source, res);
+                    await this.routeResponse(source, res);
                 }
                 else if (settings.show_command_syntax === "shortened") {
                     // show only "used !commandname"
@@ -350,13 +353,13 @@ export class Agent {
                     let chat_message = `*used ${command_name.substring(1)}*`;
                     if (pre_message.length > 0)
                         chat_message = `${pre_message}  ${chat_message}`;
-                    this.routeResponse(source, chat_message);
+                    await this.routeResponse(source, chat_message);
                 }
                 else {
                     // no command at all
                     let pre_message = res.substring(0, res.indexOf(command_name)).trim();
                     if (pre_message.trim().length > 0)
-                        this.routeResponse(source, pre_message);
+                        await this.routeResponse(source, pre_message);
                 }
 
                 let execute_res = await executeCommand(this, res);
@@ -365,17 +368,18 @@ export class Agent {
                 used_command = true;
 
                 if (execute_res)
-                    this.history.add('system', execute_res);
+                    await this.history.add('system', execute_res);
                 else
                     break;
             }
             else { // conversation response
-                this.history.add(this.name, res);
-                this.routeResponse(source, res);
+                await this.history.add(this.name, res);
+                await this.routeResponse(source, res);
+                await this.history.save();
                 break;
             }
             
-            this.history.save();
+            await this.history.save();
         }
 
         return used_command;
@@ -396,7 +400,7 @@ export class Agent {
         }
         else {
             // otherwise, use open chat
-            this.openChat(message);
+            await this.openChat(message);
             // note that to_player could be another bot, but if we get here the conversation has ended
         }
     }
@@ -457,20 +461,14 @@ export class Agent {
         });
         // Use connection handler for runtime disconnects
         this.bot.on('end', (reason) => {
-            if (!this._disconnectHandled) {
-                const { msg } = handleDisconnection(this.name, reason);
-                this.cleanKill(msg);
-            }
+            void this._handleDisconnect(reason);
         });
         this.bot.on('death', () => {
             this.actions.cancelResume();
-            this.actions.stop();
+            void this.actions.stop();
         });
         this.bot.on('kicked', (reason) => {
-            if (!this._disconnectHandled) {
-                const { msg } = handleDisconnection(this.name, reason);
-                this.cleanKill(msg);
-            }
+            void this._handleDisconnect(reason);
         });
         this.bot.on('messagestr', async (message, _, jsonMsg) => {
             if (jsonMsg.translate && jsonMsg.translate.startsWith('death') && message.startsWith(this.name)) {
@@ -482,7 +480,7 @@ export class Agent {
                     death_pos_text = `x: ${death_pos.x.toFixed(2)}, y: ${death_pos.y.toFixed(2)}, z: ${death_pos.z.toFixed(2)}`;
                 }
                 let dimention = this.bot.game.dimension;
-                this.handleMessage('system', `You died at position ${death_pos_text || "unknown"} in the ${dimention} dimension with the final message: '${message}'. Your place of death is saved as 'last_death_position' if you want to return. Previous actions were stopped and you have respawned.`);
+                await this.handleMessage('system', `You died at position ${death_pos_text || "unknown"} in the ${dimention} dimension with the final message: '${message}'. Your place of death is saved as 'last_death_position' if you want to return. Previous actions were stopped and you have respawned.`);
             }
         });
         this.bot.on('idle', () => {
@@ -491,7 +489,7 @@ export class Agent {
             this.bot.modes.unPauseAll();
             setTimeout(() => {
                 if (this.isIdle()) {
-                    this.actions.resumeAction();
+                    void this.actions.resumeAction();
                 }
             }, 1000);
         });
@@ -528,11 +526,32 @@ export class Agent {
     }
     
 
-    cleanKill(msg='Killing agent process...', code=1) {
-        this.history.add('system', msg);
-        this.bot.chat(code > 1 ? 'Restarting.': 'Exiting.');
-        this.history.save();
-        process.exit(code);
+    async cleanKill(msg='Killing agent process...', code=1) {
+        if (this._cleanKillPromise) {
+            return await this._cleanKillPromise;
+        }
+        this._cleanKillPromise = (async () => {
+            try {
+                if (this.history) {
+                    await this.history.add('system', msg);
+                }
+                try {
+                    if (this.bot?.chat) {
+                        this.bot.chat(code > 1 ? 'Restarting.': 'Exiting.');
+                    }
+                } catch (error) {
+                    console.warn('Failed to send shutdown chat message:', error.message);
+                }
+                if (this.history) {
+                    await this.history.save();
+                }
+            } catch (error) {
+                console.error('Failed during cleanKill cleanup:', error);
+            } finally {
+                process.exit(code);
+            }
+        })();
+        return await this._cleanKillPromise;
     }
     async checkTaskDone() {
         if (this.task.data) {

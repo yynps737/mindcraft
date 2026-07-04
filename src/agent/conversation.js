@@ -29,7 +29,7 @@ class Conversation {
         this.inMessageTimer = null;
         const full_message = _compileInMessages(this);
         if (full_message.message.trim().length > 0)
-            agent.history.add(this.name, full_message.message);
+            void agent.history.add(this.name, full_message.message);
         // add the full queued messages to history, but don't respond
 
         if (agent.last_sender === this.name)
@@ -78,7 +78,7 @@ class ConversationManager {
             if (this.awaiting_response && agent.isIdle()) {
                 wait_time += delta;
                 if (wait_time > this.wait_time_limit) {
-                    agent.handleMessage('system', `${convo_partner} hasn't responded in ${this.wait_time_limit/1000} seconds, respond with a message to them or your own action.`);
+                    void agent.handleMessage('system', `${convo_partner} hasn't responded in ${this.wait_time_limit/1000} seconds, respond with a message to them or your own action.`);
                     wait_time = 0;
                     this.wait_time_limit*=2;
                 }
@@ -96,7 +96,7 @@ class ConversationManager {
                     }
                     if (!agent.self_prompter.isPaused()) {
                         this.endConversation(convo_partner);
-                        agent.handleMessage('system', `${convo_partner} disconnected, conversation has ended.`);
+                        void agent.handleMessage('system', `${convo_partner} disconnected, conversation has ended.`);
                     }
                     else {
                         this.endConversation(convo_partner);
@@ -191,7 +191,7 @@ class ConversationManager {
             await agent.self_prompter.pause();
         }
     
-        _scheduleProcessInMessage(sender, received, convo);
+        void _scheduleProcessInMessage(sender, received, convo);
     }
 
     responseScheduledFor(sender) {
@@ -231,7 +231,7 @@ class ConversationManager {
                 this._stopMonitor();
                 this.activeConversation = null;
                 if (agent.self_prompter.isPaused() && !this.inConversation()) {
-                    _resumeSelfPrompter();
+                    void _resumeSelfPrompter();
                 }
             }
         }
@@ -242,7 +242,7 @@ class ConversationManager {
             this.endConversation(sender);
         }
         if (agent.self_prompter.isPaused()) {
-            _resumeSelfPrompter();
+            void _resumeSelfPrompter();
         }
     }
 
@@ -275,13 +275,13 @@ async function _scheduleProcessInMessage(sender, received, convo) {
         clearTimeout(convo.inMessageTimer);
     let otherAgentBusy = containsCommand(received.message);
 
-    const scheduleResponse = (delay) => convo.inMessageTimer = setTimeout(() => _processInMessageQueue(sender), delay);
+    const scheduleResponse = (delay) => convo.inMessageTimer = setTimeout(() => { void _processInMessageQueue(sender); }, delay);
 
     if (!agent.isIdle() && otherAgentBusy) {
         // both are busy
         let canTalkOver = talkOverActions.some(a => agent.actions.currentActionLabel.includes(a));
         if (canTalkOver)
-            scheduleResponse(fastDelay)
+            scheduleResponse(fastDelay);
         // otherwise don't respond
     }
     else if (otherAgentBusy)
@@ -306,9 +306,9 @@ async function _scheduleProcessInMessage(sender, received, convo) {
     }
 }
 
-function _processInMessageQueue(name) {
+async function _processInMessageQueue(name) {
     const convo = convoManager._getConvo(name);
-    _handleFullInMessage(name, _compileInMessages(convo));
+    await _handleFullInMessage(name, _compileInMessages(convo));
 }
 
 function _compileInMessages(convo) {
@@ -322,7 +322,7 @@ function _compileInMessages(convo) {
     return pack;
 }
 
-function _handleFullInMessage(sender, received) {
+async function _handleFullInMessage(sender, received) {
     console.log(`${agent.name} responding to "${received.message}" from ${sender}`);
     
     const convo = convoManager._getConvo(sender);
@@ -337,7 +337,7 @@ function _handleFullInMessage(sender, received) {
     else if (received.start)
         agent.shut_up = false;
     convo.inMessageTimer = null;
-    agent.handleMessage(sender, message);
+    await agent.handleMessage(sender, message);
 }
 
 

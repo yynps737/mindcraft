@@ -39,12 +39,12 @@ class MindServerProxy {
             console.log('Disconnected from MindServer');
             this.connected = false;
             if (this.agent) {
-                this.agent.cleanKill('Disconnected from MindServer. Killing agent process.');
+                void this.agent.cleanKill('Disconnected from MindServer. Killing agent process.');
             }
         });
 
         this.socket.on('chat-message', (agentName, json) => {
-            convoManager.receiveFromBot(agentName, json);
+            void convoManager.receiveFromBot(agentName, json);
         });
 
         this.socket.on('agents-status', (agents) => {
@@ -58,12 +58,14 @@ class MindServerProxy {
 
         this.socket.on('restart-agent', (agentName) => {
             console.log(`Restarting agent: ${agentName}`);
-            this.agent.cleanKill();
+            void this.agent.cleanKill();
         });
 		
         this.socket.on('send-message', (data) => {
             try {
-                this.agent.respondFunc(data.from, data.message);
+                if (this.agent?.respondFunc) {
+                    void this.agent.respondFunc(data.from, data.message);
+                }
             } catch (error) {
                 console.error('Error: ', JSON.stringify(error, Object.getOwnPropertyNames(error)));
             }
@@ -110,11 +112,11 @@ class MindServerProxy {
     }
 
     login() {
-        this.socket.emit('login-agent', this.agent.name);
+        this.socket?.emit('login-agent', this.agent.name);
     }
 
     shutdown() {
-        this.socket.emit('shutdown');
+        this.socket?.emit('shutdown');
     }
 
     getSocket() {
@@ -127,10 +129,10 @@ export const serverProxy = new MindServerProxy();
 
 // for chatting with other bots
 export function sendBotChatToServer(agentName, json) {
-    serverProxy.getSocket().emit('chat-message', agentName, json);
+    serverProxy.getSocket()?.emit('chat-message', agentName, json);
 }
 
 // for sending general output to server for display
 export function sendOutputToServer(agentName, message) {
-    serverProxy.getSocket().emit('bot-output', agentName, message);
+    serverProxy.getSocket()?.emit('bot-output', agentName, message);
 }

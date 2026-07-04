@@ -77,7 +77,7 @@ export const actionsList = [
         name: '!restart',
         description: 'Restart the agent process.',
         perform: async function (agent) {
-            agent.cleanKill();
+            await agent.cleanKill();
         }
     },
     {
@@ -285,7 +285,7 @@ export const actionsList = [
             let success = await skills.smeltItem(agent.bot, item_name, num);
             if (success) {
                 setTimeout(() => {
-                    agent.cleanKill('Safely restarting to update inventory.');
+                    void agent.cleanKill('Safely restarting to update inventory.');
                 }, 500);
             }
         })
@@ -416,8 +416,8 @@ export const actionsList = [
             if (convoManager.inConversation() && !convoManager.inConversation(player_name)) 
                 convoManager.forceEndCurrentConversation();
             else if (convoManager.inConversation(player_name))
-                agent.history.add('system', 'You are already in conversation with ' + player_name + '. Don\'t use this command to talk to them.');
-            convoManager.startConversation(player_name, message);
+                await agent.history.add('system', 'You are already in conversation with ' + player_name + '. Don\'t use this command to talk to them.');
+            await convoManager.startConversation(player_name, message);
         }
     },
     {

@@ -12,14 +12,19 @@ export class MemoryBank {
 	}
 
 	getJson() {
-		return this.memory
+		return JSON.parse(JSON.stringify(this.memory));
 	}
 
 	loadJson(json) {
-		this.memory = json;
+		if (json && typeof json === 'object' && !Array.isArray(json)) {
+			this.memory = JSON.parse(JSON.stringify(json));
+		}
+		else {
+			this.memory = {};
+		}
 	}
 
 	getKeys() {
-		return Object.keys(this.memory).join(', ')
+		return Object.keys(this.memory).join(', ');
 	}
 }

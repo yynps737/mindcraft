@@ -73,8 +73,8 @@ export class NPCContoller {
 
             // Persue goal
             if (!this.agent.actions.resume_func) {
-                this.executeNext();
-                this.agent.history.save();
+                void this.executeNext();
+                await this.agent.history.save();
             }
         });
     }

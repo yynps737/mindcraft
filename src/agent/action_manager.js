@@ -1,3 +1,5 @@
+import assert from 'node:assert/strict';
+
 export class ActionManager {
     constructor(agent) {
         this.agent = agent;
@@ -12,21 +14,21 @@ export class ActionManager {
     }
 
     async resumeAction(actionFn, timeout) {
-        return this._executeResume(actionFn, timeout);
+        return await this._executeResume(actionFn, timeout);
     }
 
     async runAction(actionLabel, actionFn, { timeout, resume = false } = {}) {
         if (resume) {
-            return this._executeResume(actionLabel, actionFn, timeout);
+            return await this._executeResume(actionLabel, actionFn, timeout);
         } else {
-            return this._executeAction(actionLabel, actionFn, timeout);
+            return await this._executeAction(actionLabel, actionFn, timeout);
         }
     }
 
     async stop() {
         if (!this.executing) return;
         const timeout = setTimeout(() => {
-            this.agent.cleanKill('Code execution refused stop after 10 seconds. Killing process.');
+            void this.agent.cleanKill('Code execution refused stop after 10 seconds. Killing process.');
         }, 10000);
         while (this.executing) {
             this.agent.requestInterrupt();
@@ -61,6 +63,7 @@ export class ActionManager {
     async _executeAction(actionLabel, actionFn, timeout = 10) {
         let TIMEOUT;
         try {
+            this.timedout = false;
             if (this.last_action_time > 0) {
                 let time_diff = Date.now() - this.last_action_time;
                 if (time_diff < 20) {
@@ -75,7 +78,7 @@ export class ActionManager {
                 }
                 if (this.recent_action_counter > 5) {
                     console.error('Infinite action loop detected, shutting down.');
-                    this.agent.cleanKill('Infinite action loop detected, shutting down.');
+                    void this.agent.cleanKill('Infinite action loop detected, shutting down.');
                     return { success: false, message: 'Infinite action loop detected, shutting down.', interrupted: false, timedout: false };
                 }
             }
@@ -133,19 +136,20 @@ export class ActionManager {
             // Log the full stack trace
             console.error(err.stack);
             await this.stop();
-            err = err.toString();
+            const errString = err.toString();
 
             let message = this.getBotOutputSummary() +
                 '!!Code threw exception!!\n' +
-                'Error: ' + err + '\n' +
-                'Stack trace:\n' + err.stack+'\n';
+                'Error: ' + errString + '\n' +
+                'Stack trace:\n' + (err.stack || '') + '\n';
 
             let interrupted = this.agent.bot.interrupt_code;
+            let timedout = this.timedout;
             this.agent.clearBotLogs();
             if (!interrupted) {
                 this.agent.bot.emit('idle');
             }
-            return { success: false, message, interrupted, timedout: false };
+            return { success: false, message, interrupted, timedout };
         }
     }
 
@@ -169,7 +173,7 @@ export class ActionManager {
         return setTimeout(async () => {
             console.warn(`Code execution timed out after ${TIMEOUT_MINS} minutes. Attempting force stop.`);
             this.timedout = true;
-            this.agent.history.add('system', `Code execution timed out after ${TIMEOUT_MINS} minutes. Attempting force stop.`);
+            await this.agent.history.add('system', `Code execution timed out after ${TIMEOUT_MINS} minutes. Attempting force stop.`);
             await this.stop(); // last attempt to stop
         }, TIMEOUT_MINS * 60 * 1000);
     }

@@ -149,7 +149,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The Compose stack uses `DEEPSEEK_API_KEY` from `.env` or your shell environment, starts the DeepSeek V4 Flash profile, and binds the MindServer UI to `http://localhost:8080`.
+The Compose stack uses `DEEPSEEK_API_KEY` from `.env` or your shell environment, starts the DeepSeek V4 Flash profile, and binds the MindServer UI to `http://localhost:8080`. To use the heavier DeepSeek V4 Pro thinking profile, set `MINDCRAFT_PROFILE=./profiles/deepseek-max.json` in `.env`.
 
 If you prefer `docker run`, pass the same environment variables explicitly:
 

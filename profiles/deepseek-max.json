@@ -1,0 +1,29 @@
+{
+    "name": "deepseek-max",
+
+    "model": {
+        "api": "deepseek",
+        "model": "deepseek-v4-pro",
+        "params": {
+            "thinking": {
+                "type": "enabled"
+            },
+            "reasoning_effort": "max",
+            "stream": false
+        }
+    },
+
+    "code_model": {
+        "api": "deepseek",
+        "model": "deepseek-v4-pro",
+        "params": {
+            "thinking": {
+                "type": "enabled"
+            },
+            "reasoning_effort": "max",
+            "stream": false
+        }
+    },
+
+    "cooldown": 2000
+}

@@ -1,12 +1,14 @@
 {
     "name": "deepseek",
 
-    "model": "deepseek-v4-flash",
-
-    "params": {
-        "thinking": {
-            "type": "disabled"
-        },
-        "stream": false
+    "model": {
+        "api": "deepseek",
+        "model": "deepseek-v4-flash",
+        "params": {
+            "thinking": {
+                "type": "disabled"
+            },
+            "stream": false
+        }
     }
 }

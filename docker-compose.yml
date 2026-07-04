@@ -17,7 +17,7 @@ services:
       MINECRAFT_PORT: ${MINECRAFT_PORT:-55916}
       MINDSERVER_PORT: 8080
       SETTINGS_JSON: >-
-        {"auto_open_ui":false,"host_public":true,"host":"${MINECRAFT_HOST:-host.docker.internal}","profiles":["./profiles/deepseek.json"]}
+        {"auto_open_ui":false,"host_public":true,"host":"${MINECRAFT_HOST:-host.docker.internal}","profiles":["${MINDCRAFT_PROFILE:-./profiles/deepseek.json}"]}
     volumes:
       - ./profiles:/app/profiles:ro
       - ./bots:/app/bots

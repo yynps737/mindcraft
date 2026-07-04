@@ -24,7 +24,7 @@ export class VisionInterpreter {
             return "Vision is disabled. Use other methods to describe the environment.";
         }
         this._assertConfigured();
-        let result = "";
+        let result;
         const bot = this.agent.bot;
         const player = bot.players[player_name]?.entity;
         if (!player) {
@@ -51,10 +51,9 @@ export class VisionInterpreter {
             return "Vision is disabled. Use other methods to describe the environment.";
         }
         this._assertConfigured();
-        let result = "";
         const bot = this.agent.bot;
         await bot.lookAt(new Vec3(x, y + 2, z));
-        result = `Looking at coordinate ${x}, ${y}, ${z}\n`;
+        const result = `Looking at coordinate ${x}, ${y}, ${z}\n`;
 
         let filename = await this.camera.capture();
 
@@ -74,11 +73,12 @@ export class VisionInterpreter {
     }
 
     async analyzeImage(filename) {
-        const imageBuffer = fs.readFileSync(`${this.fp}/${filename}.jpg`);
+        const imagePath = `${this.fp}/${filename}.jpg`;
+        const imageBuffer = fs.readFileSync(imagePath);
         const messages = this.agent.history.getHistory();
 
         const blockInfo = this.getCenterBlockInfo();
-        const result = await this.agent.prompter.promptVision(messages, imageBuffer);
+        const result = await this.agent.prompter.promptVision(messages, imageBuffer, imagePath);
         return result + `\n${blockInfo}`;
     }
 

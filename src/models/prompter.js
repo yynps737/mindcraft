@@ -187,9 +187,9 @@ export class Prompter {
             let goal_text = '';
             for (let goal in last_goals) {
                 if (last_goals[goal])
-                    goal_text += `You recently successfully completed the goal ${goal}.\n`
+                    goal_text += `You recently successfully completed the goal ${goal}.\n`;
                 else
-                    goal_text += `You recently failed to complete the goal ${goal}.\n`
+                    goal_text += `You recently failed to complete the goal ${goal}.\n`;
             }
             prompt = prompt.replaceAll('$LAST_GOALS', goal_text.trim());
         }
@@ -259,8 +259,8 @@ export class Prompter {
             }
 
             if (generation?.includes('</think>')) {
-                const [_, afterThink] = generation.split('</think>')
-                generation = afterThink
+                const [_, afterThink] = generation.split('</think>');
+                generation = afterThink;
             }
 
             return generation;
@@ -295,7 +295,7 @@ export class Prompter {
         let resp = await this.reasoning_model.sendRequest([], prompt);
         await this._saveLog(prompt, to_summarize, resp, 'memSaving');
         if (resp?.includes('</think>')) {
-            const [_, afterThink] = resp.split('</think>')
+            const [_, afterThink] = resp.split('</think>');
             resp = afterThink;
         }
         return resp;
@@ -311,11 +311,26 @@ export class Prompter {
         return res.trim().toLowerCase() === 'respond';
     }
 
-    async promptVision(messages, imageBuffer) {
+    async promptVision(messages, imageBuffer, imagePath=null) {
         await this.checkCooldown();
         let prompt = this.profile.image_analysis;
         prompt = await this.replaceStrings(prompt, messages, null, null, null);
-        return await this.vision_model.sendVisionRequest(messages, prompt, imageBuffer);
+        return await this.vision_model.sendVisionRequest(messages, prompt, imageBuffer, imagePath);
+    }
+
+    async close() {
+        const models = new Set([
+            this.chat_model,
+            this.code_model,
+            this.reasoning_model,
+            this.vision_model,
+            this.embedding_model,
+        ]);
+        for (const model of models) {
+            if (model?.close) {
+                await model.close();
+            }
+        }
     }
 
     async promptGoalSetting(messages, last_goals) {
@@ -324,7 +339,7 @@ export class Prompter {
         system_message = await this.replaceStrings(system_message, messages);
 
         let user_message = 'Use the below info to determine what goal to target next\n\n';
-        user_message += '$LAST_GOALS\n$STATS\n$INVENTORY\n$CONVO'
+        user_message += '$LAST_GOALS\n$STATS\n$INVENTORY\n$CONVO';
         user_message = await this.replaceStrings(user_message, messages, null, null, last_goals);
         let user_messages = [{role: 'user', content: user_message}];
 

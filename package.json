@@ -8,6 +8,7 @@
         "@google/genai": "^2.10.0",
         "@huggingface/inference": "^4.13.22",
         "@mistralai/mistralai": "^2.4.1",
+        "@z_ai/mcp-server": "^0.1.4",
         "cheerio": "^1.2.0",
         "eslint": "^10.6.0",
         "eslint-plugin-no-floating-promise": "^2.0.0",

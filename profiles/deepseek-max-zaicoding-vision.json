@@ -33,13 +33,11 @@
         }
     },
     "vision_model": {
-        "api": "zaicoding",
-        "model": "glm-5v-turbo",
+        "api": "zaivisionmcp",
+        "model": "glm-4.6v",
         "params": {
-            "thinking": {
-                "type": "enabled"
-            },
-            "stream": false
+            "tool": "analyze_image",
+            "timeout_ms": 120000
         }
     },
     "embedding": {

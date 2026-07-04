@@ -546,6 +546,13 @@ export class Agent {
                         console.warn('Failed to close vision interpreter:', error.message);
                     }
                 }
+                if (this.prompter?.close) {
+                    try {
+                        await this.prompter.close();
+                    } catch (error) {
+                        console.warn('Failed to close prompter:', error.message);
+                    }
+                }
                 if (this.bot?.viewer?.close) {
                     try {
                         this.bot.viewer.close();

@@ -1,6 +1,7 @@
 import * as skills from '../library/skills.js';
 import settings from '../settings.js';
 import convoManager from '../conversation.js';
+import { RESTART_EXIT_CODE } from '../../process/exit_codes.js';
 
 
 function runAsAction (actionFn, resume = false, timeout = -1) {
@@ -77,7 +78,7 @@ export const actionsList = [
         name: '!restart',
         description: 'Restart the agent process.',
         perform: async function (agent) {
-            await agent.cleanKill();
+            await agent.cleanKill('Restart requested by command.', RESTART_EXIT_CODE);
         }
     },
     {

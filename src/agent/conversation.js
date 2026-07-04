@@ -17,16 +17,16 @@ class Conversation {
     }
 
     reset() {
+        this.clearTimer();
         this.active = false;
         this.ignore_until_start = false;
         this.in_queue = [];
-        this.inMessageTimer = null;
     }
 
     end() {
+        this.clearTimer();
         this.active = false;
         this.ignore_until_start = true;
-        this.inMessageTimer = null;
         const full_message = _compileInMessages(this);
         if (full_message.message.trim().length > 0)
             void agent.history.add(this.name, full_message.message);
@@ -38,6 +38,12 @@ class Conversation {
 
     queue(message) {
         this.in_queue.push(message);
+    }
+
+    clearTimer() {
+        if (this.inMessageTimer)
+            clearTimeout(this.inMessageTimer);
+        this.inMessageTimer = null;
     }
 }
 
@@ -227,7 +233,7 @@ class ConversationManager {
     endConversation(sender) {
         if (this.convos[sender]) {
             this.convos[sender].end();
-            if (this.activeConversation.name === sender) {
+            if (this.activeConversation?.name === sender) {
                 this._stopMonitor();
                 this.activeConversation = null;
                 if (agent.self_prompter.isPaused() && !this.inConversation()) {
@@ -271,8 +277,7 @@ const talkOverActions = ['stay', 'followPlayer', 'mode:']; // all mode actions
 const fastDelay = 200;
 const longDelay = 5000;
 async function _scheduleProcessInMessage(sender, received, convo) {
-    if (convo.inMessageTimer)
-        clearTimeout(convo.inMessageTimer);
+    convo.clearTimer();
     let otherAgentBusy = containsCommand(received.message);
 
     const scheduleResponse = (delay) => convo.inMessageTimer = setTimeout(() => { void _processInMessageQueue(sender); }, delay);
@@ -308,6 +313,9 @@ async function _scheduleProcessInMessage(sender, received, convo) {
 
 async function _processInMessageQueue(name) {
     const convo = convoManager._getConvo(name);
+    convo.inMessageTimer = null;
+    if (convo.in_queue.length === 0)
+        return;
     await _handleFullInMessage(name, _compileInMessages(convo));
 }
 

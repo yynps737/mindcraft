@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { logoutAgent } from '../mindcraft/mindserver.js';
+import { RESTART_EXIT_CODE } from './exit_codes.js';
 
 const init_agent_path = fileURLToPath(new URL('./init_agent.js', import.meta.url));
 
@@ -38,7 +39,13 @@ export class AgentProcess {
             if (manualRestarting) {
                 return;
             }
-            
+
+            if (code === RESTART_EXIT_CODE) {
+                console.log('Restart requested.');
+                this.start(true, 'Agent process restarted.', this.count_id);
+                return;
+            }
+
             if (code > 1) {
                 console.log(`Ending task`);
                 process.exit(code);
@@ -51,7 +58,7 @@ export class AgentProcess {
                     return;
                 }
                 console.log('Restarting agent...');
-                this.start(true, 'Agent process restarted.', count_id, this.port);
+                this.start(true, 'Agent process restarted.', this.count_id);
                 last_restart = Date.now();
             }
         });

@@ -2,6 +2,7 @@ import { io } from 'socket.io-client';
 import convoManager from './conversation.js';
 import { setSettings } from './settings.js';
 import { getFullState } from './library/full_state.js';
+import { RESTART_EXIT_CODE } from '../process/exit_codes.js';
 
 // agent's individual connection to the mindserver
 // always connect to localhost
@@ -58,7 +59,7 @@ class MindServerProxy {
 
         this.socket.on('restart-agent', (agentName) => {
             console.log(`Restarting agent: ${agentName}`);
-            void this.agent.cleanKill();
+            void this.agent.cleanKill('Restart requested by MindServer.', RESTART_EXIT_CODE);
         });
 		
         this.socket.on('send-message', (data) => {

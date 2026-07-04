@@ -8,6 +8,7 @@ export class AgentProcess {
     constructor(name, port) {
         this.name = name;
         this.port = port;
+        this.manualRestarting = false;
     }
 
     start(load_memory=false, init_message=null, count_id=0) {
@@ -31,8 +32,12 @@ export class AgentProcess {
         let last_restart = Date.now();
         agentProcess.on('exit', (code, signal) => {
             console.log(`Agent process exited with code ${code} and signal ${signal}`);
+            const manualRestarting = this.manualRestarting;
             this.running = false;
             logoutAgent(this.name);
+            if (manualRestarting) {
+                return;
+            }
             
             if (code > 1) {
                 console.log(`Ending task`);
@@ -66,14 +71,26 @@ export class AgentProcess {
     forceRestart() {
         if (this.running && this.process && !this.process.killed) {
             console.log(`Agent process for ${this.name} is still running. Attempting to force restart.`);
+            this.manualRestarting = true;
             
-            const restartTimeout = setTimeout(() => {
-                console.warn(`Agent ${this.name} did not stop in time. It might be stuck.`);
+            const terminateTimeout = setTimeout(() => {
+                if (this.running && this.process && !this.process.killed) {
+                    console.warn(`Agent ${this.name} did not stop after SIGINT. Sending SIGTERM.`);
+                    this.process.kill('SIGTERM');
+                }
             }, 5000); // 5 seconds to exit
+            const killTimeout = setTimeout(() => {
+                if (this.running && this.process && !this.process.killed) {
+                    console.warn(`Agent ${this.name} did not stop after SIGTERM. Sending SIGKILL.`);
+                    this.process.kill('SIGKILL');
+                }
+            }, 10000);
 
             this.process.once('exit', () => {
-                 clearTimeout(restartTimeout);
+                 clearTimeout(terminateTimeout);
+                 clearTimeout(killTimeout);
                  console.log(`Stopped hanging agent ${this.name}. Now restarting.`);
+                 this.manualRestarting = false;
                  this.start(true, 'Agent process restarted.', this.count_id);
             });
             this.stop(); // sends SIGINT

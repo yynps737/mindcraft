@@ -37,7 +37,7 @@ const argv = yargs(args)
     })
     .argv;
 
-(async () => {
+void (async () => {
     try {
         console.log('Connecting to MindServer');
         await serverProxy.connect(argv.name, argv.port);

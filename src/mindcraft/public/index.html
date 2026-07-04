@@ -1059,8 +1059,8 @@
                 btn.disabled = true;
                 // Re-enable after 10s if still disabled (agent failed to connect)
                 setTimeout(() => {
-                    const retryBtn = document.querySelector(`button[onclick=\\"startAgent('${n}')\\"]`);
-                    const agentState = (window.currentAgents || []).find(a => a.name === n);
+                    const retryBtn = document.querySelector(`button[onclick="startAgent('${n}')"]`);
+                    const agentState = currentAgents.find(a => a.name === n);
                     const stillWaiting = agentState ? (!agentState.in_game && !agentState.socket_connected) : true;
                     if (retryBtn && stillWaiting) {
                         retryBtn.disabled = false;

@@ -24,7 +24,6 @@ class AgentConnection {
         this.socket = null;
         this.settings = settings;
         this.in_game = false;
-        this.full_state = null;
         this.viewer_port = viewer_port;
     }
     setSettings(settings) {
@@ -40,6 +39,7 @@ export function registerAgent(settings, viewer_port) {
 export function logoutAgent(agentName) {
     if (agent_connections[agentName]) {
         agent_connections[agentName].in_game = false;
+        agent_connections[agentName].socket = null;
         agentsStatusUpdate();
     }
 }
@@ -169,6 +169,7 @@ export function createMindServer(host_public = false, port = 8080) {
         socket.on('connect-agent-process', (agentName) => {
             if (agent_connections[agentName]) {
                 agent_connections[agentName].socket = socket;
+                curAgentName = agentName;
                 agentsStatusUpdate();
             }
         });
@@ -198,25 +199,39 @@ export function createMindServer(host_public = false, port = 8080) {
         });
 
         socket.on('chat-message', (agentName, json) => {
-            if (!agent_connections[agentName]) {
-                console.warn(`Agent ${agentName} tried to send a message but is not logged in`);
+            const targetSocket = getAgentSocket(agentName);
+            if (!targetSocket) {
+                console.warn(`Agent ${curAgentName} tried to send a message to ${agentName}, but the target is not connected`);
                 return;
             }
             console.log(`${curAgentName} sending message to ${agentName}: ${json.message}`);
-            agent_connections[agentName].socket.emit('chat-message', curAgentName, json);
+            targetSocket.emit('chat-message', curAgentName, json);
         });
 
         socket.on('set-agent-settings', (agentName, settings) => {
             const agent = agent_connections[agentName];
             if (agent) {
                 agent.setSettings(settings);
-                agent.socket.emit('restart-agent');
+                const agentSocket = getAgentSocket(agentName);
+                if (agentSocket) {
+                    agentSocket.emit('restart-agent');
+                }
             }
         });
 
         socket.on('restart-agent', (agentName) => {
             console.log(`Restarting agent: ${agentName}`);
-            agent_connections[agentName].socket.emit('restart-agent');
+            if (!agent_connections[agentName]) {
+                console.warn(`Cannot restart unknown agent ${agentName}`);
+                return;
+            }
+            const agentSocket = getAgentSocket(agentName);
+            if (agentSocket) {
+                agentSocket.emit('restart-agent');
+            }
+            else {
+                mindcraft.startAgent(agentName);
+            }
         });
 
         socket.on('stop-agent', (agentName) => {
@@ -256,12 +271,13 @@ export function createMindServer(host_public = false, port = 8080) {
         });
 
 		socket.on('send-message', (agentName, data) => {
-			if (!agent_connections[agentName]) {
-				console.warn(`Agent ${agentName} not in game, cannot send message via MindServer.`);
+            const agentSocket = getAgentSocket(agentName);
+			if (!agentSocket) {
+				console.warn(`Agent ${agentName} not connected, cannot send message via MindServer.`);
                 return;
 			}
 			try {
-                agent_connections[agentName].socket.emit('send-message', data);
+                agentSocket.emit('send-message', data);
 			} catch (error) {
 				console.error('Error: ', error);
 			}
@@ -298,7 +314,7 @@ function agentsStatusUpdate(socket) {
             name: agentName, 
             in_game: conn.in_game,
             viewerPort: conn.viewer_port,
-            socket_connected: !!conn.socket
+            socket_connected: !!conn.socket?.connected
         });
     };
     socket.emit('agents-status', agents);
@@ -307,16 +323,30 @@ function agentsStatusUpdate(socket) {
 
 let listenerInterval = null;
 function addListener(listener_socket) {
+    if (agent_listeners.includes(listener_socket)) {
+        return;
+    }
     agent_listeners.push(listener_socket);
     if (agent_listeners.length === 1) {
         listenerInterval = setInterval(async () => {
             const states = {};
             for (let agentName in agent_connections) {
                 let agent = agent_connections[agentName];
-                if (agent.in_game) {
+                if (agent.in_game && agent.socket?.connected) {
                     try {
                         const state = await new Promise((resolve) => {
-                            agent.socket.emit('get-full-state', (s) => resolve(s));
+                            let settled = false;
+                            const timeout = setTimeout(() => {
+                                if (settled) return;
+                                settled = true;
+                                resolve({ error: 'get-full-state timed out' });
+                            }, 800);
+                            agent.socket.emit('get-full-state', (s) => {
+                                if (settled) return;
+                                settled = true;
+                                clearTimeout(timeout);
+                                resolve(s);
+                            });
                         });
                         states[agentName] = state;
                     } catch (e) {
@@ -332,11 +362,23 @@ function addListener(listener_socket) {
 }
 
 function removeListener(listener_socket) {
-    agent_listeners.splice(agent_listeners.indexOf(listener_socket), 1);
+    const idx = agent_listeners.indexOf(listener_socket);
+    if (idx === -1) {
+        return;
+    }
+    agent_listeners.splice(idx, 1);
     if (agent_listeners.length === 0) {
         clearInterval(listenerInterval);
         listenerInterval = null;
     }
+}
+
+function getAgentSocket(agentName) {
+    const agent = agent_connections[agentName];
+    if (!agent?.socket?.connected) {
+        return null;
+    }
+    return agent.socket;
 }
 
 // Optional: export these if you need access to them from other files

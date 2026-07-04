@@ -101,6 +101,24 @@ export async function findServers(ip, earlyExit = false, timeout = 100) {
     return servers;
 }
 
+async function retryServerInfo(host, port, attempts = 8, timeout = 1000, delay = 500) {
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+        const server = await serverInfo(host, port, timeout, attempt === attempts);
+        if (server) return server;
+        if (attempt < attempts) {
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+    return null;
+}
+
+function isSupportedVersion(version) {
+    if (!version) return false;
+    return mc.supportedVersions.some(v =>
+        version === v || (version.startsWith(v) && version.charAt(v.length) === '.')
+    );
+}
+
 /**
  * Gets the MC server info from the host and port.
  * @param {string} host - The host to search for.
@@ -127,7 +145,7 @@ export async function getServer(host, port, version) {
             throw new Error(`No server found on LAN.`);
     }
     else
-        server = await serverInfo(host, port, 1000, true);
+        server = await retryServerInfo(host, port);
 
     // Server not found
     if (server == null) 
@@ -140,15 +158,17 @@ export async function getServer(host, port, version) {
     else
         serverVersion = version;
     // Server version unsupported / mismatch
-    const isSupported = mc.supportedVersions.some(v => 
-        serverVersion === v || (serverVersion.startsWith(v) && serverVersion.charAt(v.length) === '.')
-    ); // Checks version or parent version (e.g. if 1.7 is supported then 1.7.2 will be allowed)
-     if (!isSupported)
+    if (!isSupportedVersion(serverVersion))
         throw new Error(`MC server was found ${serverString}, but version is unsupported. Supported versions are: ${mc.supportedVersions.join(", ")}.`);
-    else if (version !== "auto" && server.version !== version)
-        throw new Error(`MC server was found ${serverString}, but version is incorrect. Expected ${version}, but found ${server.version}. Check the server version in settings.js.`);
-    else
-        console.log(`MC server found. ${serverString}`);
+    else if (version !== "auto" && server.version !== version) {
+        if (isSupportedVersion(server.version)) {
+            throw new Error(`MC server was found ${serverString}, but version is incorrect. Expected ${version}, but found ${server.version}. Check the server version in settings.js.`);
+        }
+        console.warn(`MC server ping reported ${serverString}; using configured client version ${version}. This is expected behind protocol proxies.`);
+        server.version = version;
+    }
+
+    console.log(`MC server found. (Host: ${server.host}, Port: ${server.port}, Version: ${server.version})`);
 
     return server;
 }

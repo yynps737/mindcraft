@@ -95,9 +95,13 @@ export class Agent {
         this.bot.once('spawn', async () => {
             try {
                 clearTimeout(spawnTimeout);
-                addBrowserViewer(this.bot, count_id);
+                const viewer = addBrowserViewer(this.bot, count_id);
+                if (viewer?.ready) {
+                    await viewer.ready;
+                }
                 console.log('Initializing vision intepreter...');
                 this.vision_interpreter = new VisionInterpreter(this, settings.allow_vision);
+                await this.vision_interpreter.ready();
 
                 // wait for a bit so stats are not undefined
                 await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -534,6 +538,20 @@ export class Agent {
             try {
                 if (this.history) {
                     await this.history.add('system', msg);
+                }
+                if (this.vision_interpreter) {
+                    try {
+                        await this.vision_interpreter.close();
+                    } catch (error) {
+                        console.warn('Failed to close vision interpreter:', error.message);
+                    }
+                }
+                if (this.bot?.viewer?.close) {
+                    try {
+                        this.bot.viewer.close();
+                    } catch (error) {
+                        console.warn('Failed to close browser viewer:', error.message);
+                    }
                 }
                 try {
                     if (this.bot?.chat) {

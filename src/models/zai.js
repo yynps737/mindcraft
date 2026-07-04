@@ -130,12 +130,7 @@ class ZAIBase {
                 console.log('Context length exceeded, trying again with shorter context.');
                 return await this.sendVisionRequest(messages.slice(1), systemMessage, imageBuffer);
             }
-            if (String(err.message || err).includes('image')) {
-                console.log(err);
-                return 'Vision is only supported by certain models.';
-            }
-            console.log(err);
-            res = 'My brain disconnected, try again.';
+            throw err;
         }
         return res;
     }

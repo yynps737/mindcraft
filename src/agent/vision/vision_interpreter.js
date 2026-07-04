@@ -1,5 +1,5 @@
 import { Vec3 } from 'vec3';
-import { Camera } from "./camera.js";
+import { BrowserCamera } from "./browser_camera.js";
 import fs from 'fs';
 
 export class VisionInterpreter {
@@ -8,20 +8,22 @@ export class VisionInterpreter {
         this.allow_vision = allow_vision;
         this.fp = './bots/'+agent.name+'/screenshots/';
         if (allow_vision) {
-            try {
-                this.camera = new Camera(agent.bot, this.fp);
-            } catch (error) {
-                console.warn('Vision disabled because camera initialization failed:', error);
-                this.allow_vision = false;
-                this.camera = null;
-            }
+            this.camera = new BrowserCamera(agent.bot, this.fp, 3000 + agent.count_id);
+        }
+    }
+
+    async ready() {
+        if (this.allow_vision) {
+            this._assertConfigured();
+            await this.camera.ready;
         }
     }
 
     async lookAtPlayer(player_name, direction) {
-        if (!this.allow_vision || !this.camera || !this.agent.prompter.vision_model.sendVisionRequest) {
+        if (!this.allow_vision) {
             return "Vision is disabled. Use other methods to describe the environment.";
         }
+        this._assertConfigured();
         let result = "";
         const bot = this.agent.bot;
         const player = bot.players[player_name]?.entity;
@@ -45,9 +47,10 @@ export class VisionInterpreter {
     }
 
     async lookAtPosition(x, y, z) {
-        if (!this.allow_vision || !this.camera || !this.agent.prompter.vision_model.sendVisionRequest) {
+        if (!this.allow_vision) {
             return "Vision is disabled. Use other methods to describe the environment.";
         }
+        this._assertConfigured();
         let result = "";
         const bot = this.agent.bot;
         await bot.lookAt(new Vec3(x, y + 2, z));
@@ -71,17 +74,26 @@ export class VisionInterpreter {
     }
 
     async analyzeImage(filename) {
-        try {
-            const imageBuffer = fs.readFileSync(`${this.fp}/${filename}.jpg`);
-            const messages = this.agent.history.getHistory();
+        const imageBuffer = fs.readFileSync(`${this.fp}/${filename}.jpg`);
+        const messages = this.agent.history.getHistory();
 
-            const blockInfo = this.getCenterBlockInfo();
-            const result = await this.agent.prompter.promptVision(messages, imageBuffer);
-            return result + `\n${blockInfo}`;
+        const blockInfo = this.getCenterBlockInfo();
+        const result = await this.agent.prompter.promptVision(messages, imageBuffer);
+        return result + `\n${blockInfo}`;
+    }
 
-        } catch (error) {
-            console.warn('Error reading image:', error);
-            return `Error reading image: ${error.message}`;
+    async close() {
+        if (this.camera) {
+            await this.camera.close();
+        }
+    }
+
+    _assertConfigured() {
+        if (!this.camera) {
+            throw new Error('Vision is enabled but no camera backend was initialized.');
+        }
+        if (!this.agent.prompter.vision_model?.sendVisionRequest) {
+            throw new Error('Vision is enabled but the configured vision model does not support image requests.');
         }
     }
 }

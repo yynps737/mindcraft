@@ -452,7 +452,8 @@ export const actionsList = [
             const actionFn = async () => {
                 result = await agent.vision_interpreter.lookAtPlayer(player_name, direction);
             };
-            await agent.actions.runAction('action:lookAtPlayer', actionFn);
+            const actionResult = await agent.actions.runAction('action:lookAtPlayer', actionFn);
+            if (!actionResult.success) return actionResult.message;
             return result;
         }
     },
@@ -469,7 +470,8 @@ export const actionsList = [
             const actionFn = async () => {
                 result = await agent.vision_interpreter.lookAtPosition(x, y, z);
             };
-            await agent.actions.runAction('action:lookAtPosition', actionFn);
+            const actionResult = await agent.actions.runAction('action:lookAtPosition', actionFn);
+            if (!actionResult.success) return actionResult.message;
             return result;
         }
     },

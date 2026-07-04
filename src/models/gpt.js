@@ -2,6 +2,27 @@ import OpenAIApi from 'openai';
 import { getKey, hasKey } from '../utils/keys.js';
 import { strictFormat } from '../utils/text.js';
 
+const ONLY_ALLOWED_EMBEDDING_MODEL = 'text-embedding-3-large';
+
+function envEnabled(name) {
+    return ['1', 'true', 'yes', 'on'].includes(String(process.env[name] || '').trim().toLowerCase());
+}
+
+function openAIEmbeddingsOnly() {
+    return envEnabled('OPENAI_EMBEDDINGS_ONLY');
+}
+
+function getOpenAIEmbeddingModel(model_name) {
+    if (!openAIEmbeddingsOnly()) {
+        return model_name || "text-embedding-3-small";
+    }
+    const configured = process.env.OPENAI_EMBEDDING_MODEL || ONLY_ALLOWED_EMBEDDING_MODEL;
+    if (configured !== ONLY_ALLOWED_EMBEDDING_MODEL) {
+        throw new Error(`OPENAI_EMBEDDING_MODEL must be ${ONLY_ALLOWED_EMBEDDING_MODEL} when OPENAI_EMBEDDINGS_ONLY is enabled.`);
+    }
+    return ONLY_ALLOWED_EMBEDDING_MODEL;
+}
+
 export class GPT {
     static prefix = 'openai';
     constructor(model_name, url, params) {
@@ -22,6 +43,11 @@ export class GPT {
     }
 
     async sendRequest(turns, systemMessage, stop_seq='***') {
+        if (openAIEmbeddingsOnly()) {
+            console.warn('OpenAI text generation is disabled by OPENAI_EMBEDDINGS_ONLY.');
+            return 'OpenAI text generation is disabled for this key.';
+        }
+
         let messages = strictFormat(turns);
         messages = messages.map(message => {
             message.content += stop_seq;
@@ -107,7 +133,7 @@ export class GPT {
         if (text.length > 8191)
             text = text.slice(0, 8191);
         const embedding = await this.openai.embeddings.create({
-            model: this.model_name || "text-embedding-3-small",
+            model: getOpenAIEmbeddingModel(this.model_name),
             input: text,
             encoding_format: "float",
         });
@@ -117,6 +143,10 @@ export class GPT {
 }
 
 const sendAudioRequest = async (text, model, voice, url) => {
+    if (openAIEmbeddingsOnly()) {
+        throw new Error('OpenAI text-to-speech is disabled by OPENAI_EMBEDDINGS_ONLY.');
+    }
+
     const payload = {
         model: model,
         voice: voice,

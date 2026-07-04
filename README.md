@@ -157,6 +157,8 @@ To enable Z.ai GLM-5V-Turbo for vision while keeping DeepSeek for chat and codin
 
 Z.ai GLM Coding Plan uses a separate token and endpoint. Put the Coding Plan token in `ZAICODING_API_KEY`, keep `ZAI_API_KEY` for the general pay-as-you-go API, and use `MINDCRAFT_PROFILE=./profiles/deepseek-max-zaicoding-vision.json`. The default Coding Plan base URL is `https://api.z.ai/api/coding/paas/v4`.
 
+For this Docker profile, OpenAI is intended only for embeddings. Set `OPENAI_API_KEY`, keep `OPENAI_EMBEDDINGS_ONLY=true`, and use `OPENAI_EMBEDDING_MODEL=text-embedding-3-large`; OpenAI text generation, vision, and TTS calls are blocked by the provider guard when that flag is enabled.
+
 If you prefer `docker run`, pass the same environment variables explicitly:
 
 ```bash
@@ -166,6 +168,9 @@ docker run --rm \
   -p 8080:8080 \
   -p 3000-3003:3000-3003 \
   -e DEEPSEEK_API_KEY \
+  -e OPENAI_API_KEY \
+  -e OPENAI_EMBEDDINGS_ONLY=true \
+  -e OPENAI_EMBEDDING_MODEL=text-embedding-3-large \
   -e ZAI_API_KEY \
   -e ZAICODING_API_KEY \
   -e ZAI_BASE_URL=https://api.z.ai/api/paas/v4 \

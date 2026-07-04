@@ -32,5 +32,10 @@
             "stream": false
         }
     },
+    "embedding": {
+        "api": "openai",
+        "model": "text-embedding-3-large"
+    },
+    "speak_model": "system",
     "cooldown": 2000
 }

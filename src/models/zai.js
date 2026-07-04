@@ -6,13 +6,20 @@ function getZaiKeyName() {
     if (hasKey('ZAI_API_KEY')) {
         return 'ZAI_API_KEY';
     }
-    if (hasKey('Z_AI_API_KEY')) {
-        return 'Z_AI_API_KEY';
-    }
     if (hasKey('ZHIPU_API_KEY')) {
         return 'ZHIPU_API_KEY';
     }
     return 'ZAI_API_KEY';
+}
+
+function getZaiCodingKeyName() {
+    if (hasKey('ZAICODING_API_KEY')) {
+        return 'ZAICODING_API_KEY';
+    }
+    if (hasKey('ZAI_CODING_API_KEY')) {
+        return 'ZAI_CODING_API_KEY';
+    }
+    return 'ZAICODING_API_KEY';
 }
 
 function extractText(content) {
@@ -36,17 +43,16 @@ function cloneTextTurns(turns) {
     }));
 }
 
-// Z.ai exposes GLM models through an OpenAI-compatible chat completions API.
-export class ZAI {
-    static prefix = 'zai';
-
-    constructor(model_name, url, params) {
+class ZAIBase {
+    constructor(model_name, url, params, options) {
         this.model_name = model_name;
         this.params = params;
+        this.default_model = options.defaultModel;
+        this.provider_label = options.providerLabel;
 
         const config = {
-            baseURL: url || process.env.ZAI_BASE_URL || 'https://api.z.ai/api/paas/v4',
-            apiKey: getKey(getZaiKeyName()),
+            baseURL: url || process.env[options.baseURLEnv] || options.defaultBaseURL,
+            apiKey: getKey(options.keyName),
         };
 
         this.openai = new OpenAIApi(config);
@@ -54,7 +60,7 @@ export class ZAI {
 
     createPack(messages, stop_seq='***') {
         const pack = {
-            model: this.model_name || 'glm-5v-turbo',
+            model: this.model_name || this.default_model,
             messages,
             stream: false,
             ...(this.params || {}),
@@ -66,7 +72,7 @@ export class ZAI {
     }
 
     async createCompletion(pack) {
-        console.log('Awaiting z.ai api response...');
+        console.log(`Awaiting ${this.provider_label} api response...`);
         const completion = await this.openai.chat.completions.create(pack);
         if (completion.choices[0].finish_reason === 'length') {
             throw new Error('Context length exceeded');
@@ -135,6 +141,36 @@ export class ZAI {
     }
 
     async embed(text) {
-        throw new Error('Embeddings are not supported by the Z.ai provider.');
+        throw new Error(`Embeddings are not supported by the ${this.provider_label} provider.`);
+    }
+}
+
+// General Z.ai pay-as-you-go API. This is separate from GLM Coding Plan keys.
+export class ZAI extends ZAIBase {
+    static prefix = 'zai';
+
+    constructor(model_name, url, params) {
+        super(model_name, url, params, {
+            defaultBaseURL: 'https://api.z.ai/api/paas/v4',
+            baseURLEnv: 'ZAI_BASE_URL',
+            keyName: getZaiKeyName(),
+            defaultModel: 'glm-5v-turbo',
+            providerLabel: 'z.ai',
+        });
+    }
+}
+
+// GLM Coding Plan API. Coding Plan keys are not interchangeable with general Z.ai API keys.
+export class ZAICoding extends ZAIBase {
+    static prefix = 'zaicoding';
+
+    constructor(model_name, url, params) {
+        super(model_name, url, params, {
+            defaultBaseURL: 'https://api.z.ai/api/coding/paas/v4',
+            baseURLEnv: 'ZAI_CODING_BASE_URL',
+            keyName: getZaiCodingKeyName(),
+            defaultModel: 'glm-5v-turbo',
+            providerLabel: 'z.ai coding plan',
+        });
     }
 }

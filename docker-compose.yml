@@ -15,9 +15,11 @@ services:
       NODE_ENV: production
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:?Set DEEPSEEK_API_KEY in .env or shell}
       ZAI_API_KEY: ${ZAI_API_KEY:-}
-      Z_AI_API_KEY: ${Z_AI_API_KEY:-}
       ZHIPU_API_KEY: ${ZHIPU_API_KEY:-}
       ZAI_BASE_URL: ${ZAI_BASE_URL:-https://api.z.ai/api/paas/v4}
+      ZAICODING_API_KEY: ${ZAICODING_API_KEY:-}
+      ZAI_CODING_API_KEY: ${ZAI_CODING_API_KEY:-}
+      ZAI_CODING_BASE_URL: ${ZAI_CODING_BASE_URL:-https://api.z.ai/api/coding/paas/v4}
       MINECRAFT_PORT: ${MINECRAFT_PORT:-55916}
       MINDSERVER_PORT: 8080
       SETTINGS_JSON: >-

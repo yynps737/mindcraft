@@ -1,0 +1,36 @@
+{
+    "name": "deepseek-max-zai-vision",
+    "model": {
+        "api": "deepseek",
+        "model": "deepseek-v4-pro",
+        "params": {
+            "thinking": {
+                "type": "enabled"
+            },
+            "reasoning_effort": "max",
+            "stream": false
+        }
+    },
+    "code_model": {
+        "api": "deepseek",
+        "model": "deepseek-v4-pro",
+        "params": {
+            "thinking": {
+                "type": "enabled"
+            },
+            "reasoning_effort": "max",
+            "stream": false
+        }
+    },
+    "vision_model": {
+        "api": "zai",
+        "model": "glm-5v-turbo",
+        "params": {
+            "thinking": {
+                "type": "enabled"
+            },
+            "stream": false
+        }
+    },
+    "cooldown": 2000
+}

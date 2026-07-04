@@ -48,6 +48,17 @@ function parsePortEnv(name) {
     return port;
 }
 
+function parseBooleanEnv(name) {
+    const value = String(process.env[name]).trim().toLowerCase();
+    if (['1', 'true', 'yes', 'on'].includes(value)) {
+        return true;
+    }
+    if (['0', 'false', 'no', 'off'].includes(value)) {
+        return false;
+    }
+    throw new Error(`${name} must be a boolean value: true/false, 1/0, yes/no, or on/off.`);
+}
+
 function assertUniqueProfileNames(profiles) {
     const seen = new Set();
     for (const profile of profiles) {
@@ -82,6 +93,12 @@ async function main() {
     }
     if (process.env.MINDSERVER_PORT) {
         settings.mindserver_port = parsePortEnv('MINDSERVER_PORT');
+    }
+    if (process.env.ALLOW_VISION) {
+        settings.allow_vision = parseBooleanEnv('ALLOW_VISION');
+    }
+    if (process.env.RENDER_BOT_VIEW) {
+        settings.render_bot_view = parseBooleanEnv('RENDER_BOT_VIEW');
     }
     if (process.env.PROFILES) {
         const profiles = parseJsonEnv('PROFILES');

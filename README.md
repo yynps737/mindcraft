@@ -63,6 +63,7 @@ You can configure the agent's name, model, and prompts in their profile like `an
 | `anthropic` | `ANTHROPIC_API_KEY` | [docs](https://docs.anthropic.com/claude/docs/models-overview) |
 | `xai` | `XAI_API_KEY` | [docs](https://docs.x.ai/docs) |
 | `deepseek` | `DEEPSEEK_API_KEY` | [docs](https://api-docs.deepseek.com/) |
+| `zai` | `ZAI_API_KEY` | [docs](https://docs.z.ai/) |
 | `ollama` (local) | n/a | [docs](https://ollama.com/library) |
 | `qwen` | `QWEN_API_KEY` | [Intl.](https://www.alibabacloud.com/help/en/model-studio/developer-reference/use-qwen-by-calling-api)/[cn](https://help.aliyun.com/zh/model-studio/getting-started/models) |
 | `mistral` | `MISTRAL_API_KEY` | [docs](https://docs.mistral.ai/getting-started/models/models_overview/) |
@@ -151,6 +152,8 @@ docker compose up --build
 
 The Compose stack uses `DEEPSEEK_API_KEY` from `.env` or your shell environment, starts the DeepSeek V4 Flash profile, and binds the MindServer UI to `http://localhost:8080`. To use the heavier DeepSeek V4 Pro thinking profile, set `MINDCRAFT_PROFILE=./profiles/deepseek-max.json` in `.env`.
 
+To enable Z.ai GLM-5V-Turbo for vision while keeping DeepSeek for chat and coding, add `ZAI_API_KEY`, then set `MINDCRAFT_PROFILE=./profiles/deepseek-max-zai-vision.json`, `ALLOW_VISION=true`, and usually `RENDER_BOT_VIEW=true`. The default Z.ai base URL is `https://api.z.ai/api/paas/v4`; override `ZAI_BASE_URL` only if your Z.ai plan requires a different OpenAI-compatible endpoint.
+
 If you prefer `docker run`, pass the same environment variables explicitly:
 
 ```bash
@@ -160,6 +163,8 @@ docker run --rm \
   -p 8080:8080 \
   -p 3000-3003:3000-3003 \
   -e DEEPSEEK_API_KEY \
+  -e ZAI_API_KEY \
+  -e ZAI_BASE_URL=https://api.z.ai/api/paas/v4 \
   -e MINECRAFT_PORT=55916 \
   -e SETTINGS_JSON='{"auto_open_ui":false,"host_public":true,"profiles":["./profiles/deepseek.json"],"host":"host.docker.internal"}' \
   --volume ./profiles:/app/profiles:ro \

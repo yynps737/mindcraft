@@ -10,6 +10,7 @@
     "XAI_API_KEY": "",
     "MISTRAL_API_KEY": "",
     "DEEPSEEK_API_KEY": "",
+    "ZAI_API_KEY": "",
     "GHLF_API_KEY": "",
     "HYPERBOLIC_API_KEY": "",
     "NOVITA_API_KEY": "",

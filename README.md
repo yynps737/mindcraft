@@ -155,7 +155,7 @@ The Compose stack uses `DEEPSEEK_API_KEY` from `.env` or your shell environment,
 
 To enable Z.ai GLM-5V-Turbo for vision while keeping DeepSeek for chat and coding, add `ZAI_API_KEY`, then set `MINDCRAFT_PROFILE=./profiles/deepseek-max-zai-vision.json`, `ALLOW_VISION=true`, and usually `RENDER_BOT_VIEW=true`. The default Z.ai general API base URL is `https://api.z.ai/api/paas/v4`.
 
-Z.ai GLM Coding Plan uses a separate token and endpoint. Put the Coding Plan token in `ZAICODING_API_KEY`, keep `ZAI_API_KEY` for the general pay-as-you-go API, and use `MINDCRAFT_PROFILE=./profiles/deepseek-max-zaicoding-vision.json` for the max-quality profile. The default Coding Plan base URL is `https://api.z.ai/api/coding/paas/v4`. This profile uses `glm-5.2` with `thinking.enabled` and `reasoning_effort=max` for both chat and code.
+Z.ai GLM Coding Plan uses a separate token and endpoint. Put the Coding Plan token in `ZAICODING_API_KEY`, keep `ZAI_API_KEY` for the general pay-as-you-go API, and use `MINDCRAFT_PROFILE=./profiles/deepseek-max-zaicoding-vision.json` for the hybrid profile. The default Coding Plan base URL is `https://api.z.ai/api/coding/paas/v4`. This profile uses DeepSeek V4 Flash for chat, DeepSeek V4 Pro with `thinking.enabled` and `reasoning_effort=max` for ordinary reasoning, and `glm-5.2` with `reasoning_effort=max` for newAction coding.
 
 For this Docker profile, OpenAI is intended only for embeddings. Set `OPENAI_API_KEY`, keep `OPENAI_EMBEDDINGS_ONLY=true`, and use `OPENAI_EMBEDDING_MODEL=text-embedding-3-large`; OpenAI text generation, vision, and TTS calls are blocked by the provider guard when that flag is enabled.
 
@@ -195,45 +195,61 @@ To connect to an unsupported minecraft version, you can try to use [viaproxy](se
 
 Bot profiles are json files (such as `andy.json`) that define:
 
-1. Bot backend LLMs to use for talking, coding, and embedding.
+1. Bot backend LLMs to use for talking, reasoning, coding, and embedding.
 2. Prompts used to influence the bot's behavior.
 3. Examples help the bot perform tasks.
 
 ## Model Specifications
 
-LLM models can be specified simply as `"model": "gpt-5.4"`, or more specifically with `"{api}/{model}"`, like `"openrouter/google/gemini-2.5-pro"`. See all supported APIs [here](#model-customization).
+LLM models can be specified simply as `"model": "deepseek-v4-flash"`, or more specifically with `"{api}/{model}"`, like `"zaicoding/glm-5.2"`. See all supported APIs [here](#model-customization).
 
-The `model` field can be a string or an object. A model object must specify an `api`, and optionally a `model`, `url`, and additional `params`. You can also use different models/providers for chatting, coding, vision, embedding, and voice synthesis. See the example below.
+The `model` field can be a string or an object. A model object must specify an `api`, and optionally a `model`, `url`, and additional `params`. You can also use different models/providers for chatting, ordinary reasoning, coding, vision, embedding, and voice synthesis. See the example below.
 
 ```json
 "model": {
-  "api": "openai",
-  "model": "gpt-5.4",
-  "url": "https://api.openai.com/v1/",
+  "api": "deepseek",
+  "model": "deepseek-v4-flash",
   "params": {
-    "max_tokens": 1000,
-    "temperature": 1
+    "thinking": {
+      "type": "disabled"
+    },
+    "stream": false
+  }
+},
+"reasoning_model": {
+  "api": "deepseek",
+  "model": "deepseek-v4-pro",
+  "params": {
+    "thinking": {
+      "type": "enabled"
+    },
+    "reasoning_effort": "max",
+    "stream": false
   }
 },
 "code_model": {
-  "api": "openai",
-  "model": "gpt-5.4-mini",
-  "url": "https://api.openai.com/v1/"
+  "api": "zaicoding",
+  "model": "glm-5.2",
+  "params": {
+    "thinking": {
+      "type": "enabled"
+    },
+    "reasoning_effort": "max",
+    "stream": false
+  }
 },
 "vision_model": {
-  "api": "openai",
-  "model": "gpt-5.4",
-  "url": "https://api.openai.com/v1/"
+  "api": "zaicoding",
+  "model": "glm-5v-turbo"
 },
 "embedding": {
   "api": "openai",
-  "url": "https://api.openai.com/v1/",
-  "model": "text-embedding-3-small"
+  "model": "text-embedding-3-large"
 },
-"speak_model": "openai/tts-1/echo"
+"speak_model": "system"
 ```
 
-`model` is used for chat, `code_model` is used for newAction coding, `vision_model` is used for image interpretation, `embedding` is used to embed text for example selection, and `speak_model` is used for voice synthesis. `model` will be used by default for all other models if not specified. Not all APIs support embeddings, vision, or voice synthesis.
+`model` is used for chat, `reasoning_model` is used for memory saving, bot-response decisions, and goal setting, `code_model` is used for newAction coding, `vision_model` is used for image interpretation, `embedding` is used to embed text for example selection, and `speak_model` is used for voice synthesis. `model` will be used by default for reasoning, coding, and vision if those fields are not specified. Not all APIs support embeddings, vision, or voice synthesis.
 
 All apis have default models and urls, so those fields are optional. The `params` field is optional and can be used to specify additional parameters for the model. It accepts any key-value pairs supported by the api. Is not supported for embedding models.
 

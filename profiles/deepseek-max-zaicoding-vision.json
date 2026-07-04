@@ -1,8 +1,18 @@
 {
-    "name": "max-quality-zaicoding",
+    "name": "hybrid-deepseek-zai",
     "model": {
-        "api": "zaicoding",
-        "model": "glm-5.2",
+        "api": "deepseek",
+        "model": "deepseek-v4-flash",
+        "params": {
+            "thinking": {
+                "type": "disabled"
+            },
+            "stream": false
+        }
+    },
+    "reasoning_model": {
+        "api": "deepseek",
+        "model": "deepseek-v4-pro",
         "params": {
             "thinking": {
                 "type": "enabled"

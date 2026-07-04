@@ -67,6 +67,14 @@ export class Prompter {
             this.code_model = this.chat_model;
         }
 
+        if (this.profile.reasoning_model) {
+            let reasoning_model_profile = selectAPI(this.profile.reasoning_model);
+            this.reasoning_model = createModel(reasoning_model_profile);
+        }
+        else {
+            this.reasoning_model = this.chat_model;
+        }
+
         if (this.profile.vision_model) {
             let vision_model_profile = selectAPI(this.profile.vision_model);
             this.vision_model = createModel(vision_model_profile);
@@ -281,7 +289,7 @@ export class Prompter {
         await this.checkCooldown();
         let prompt = this.profile.saving_memory;
         prompt = await this.replaceStrings(prompt, null, null, to_summarize);
-        let resp = await this.chat_model.sendRequest([], prompt);
+        let resp = await this.reasoning_model.sendRequest([], prompt);
         await this._saveLog(prompt, to_summarize, resp, 'memSaving');
         if (resp?.includes('</think>')) {
             const [_, afterThink] = resp.split('</think>')
@@ -296,7 +304,7 @@ export class Prompter {
         let messages = this.agent.history.getHistory();
         messages.push({role: 'user', content: new_message});
         prompt = await this.replaceStrings(prompt, null, null, messages);
-        let res = await this.chat_model.sendRequest([], prompt);
+        let res = await this.reasoning_model.sendRequest([], prompt);
         return res.trim().toLowerCase() === 'respond';
     }
 
@@ -317,7 +325,7 @@ export class Prompter {
         user_message = await this.replaceStrings(user_message, messages, null, null, last_goals);
         let user_messages = [{role: 'user', content: user_message}];
 
-        let res = await this.chat_model.sendRequest(user_messages, system_message);
+        let res = await this.reasoning_model.sendRequest(user_messages, system_message);
 
         let goal = null;
         try {
